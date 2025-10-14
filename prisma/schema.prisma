@@ -1,0 +1,279 @@
+// Prisma Schema for Darul Umah School Management System
+// Database: SQLite for local/offline, PostgreSQL for production
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// User Authentication
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String   // Hashed password
+  role      Role     @default(TEACHER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  teacher   Teacher?
+  admin     Admin?
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+}
+
+// Admin Profile
+model Admin {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  photoUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Teacher Profile
+model Teacher {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  email        String
+  phone        String?
+  photoUrl     String?
+  employeeId   String   @unique
+  subjects     String   // JSON array of subjects
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  classes      Class[]
+  marks        Mark[]
+  attendances  Attendance[]
+}
+
+// Academic Year
+model AcademicYear {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "2024-2025"
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  students    Student[]
+  classes     Class[]
+  marks       Mark[]
+  attendances Attendance[]
+  fees        Fee[]
+}
+
+// Student
+model Student {
+  id             String       @id @default(uuid())
+  studentId      String       @unique // e.g., "DU-2025-001"
+  name           String
+  gender         Gender
+  dateOfBirth    DateTime?
+  className      String
+  email          String?
+  phone          String?
+  parentPhone    String?
+  address        String?
+  photoUrl       String?
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  marks          Mark[]
+  attendances    Attendance[]
+  fees           Fee[]
+
+  @@index([academicYearId])
+  @@index([studentId])
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+// Class
+model Class {
+  id             String       @id @default(uuid())
+  name           String       // e.g., "Grade 8A"
+  subject        String       // e.g., "Mathematics"
+  room           String?
+  schedule       String?      // JSON: days and times
+  teacherId      String
+  teacher        Teacher      @relation(fields: [teacherId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  studentIds     String       // JSON array of student IDs
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  marks          Mark[]
+  attendances    Attendance[]
+
+  @@index([teacherId])
+  @@index([academicYearId])
+}
+
+// Marks/Results
+model Mark {
+  id             String       @id @default(uuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id])
+  teacherId      String
+  teacher        Teacher      @relation(fields: [teacherId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  subject        String
+  midterm        Float?
+  final          Float?
+  homework       Float?
+  total          Float?
+  grade          String?
+  status         MarkStatus   @default(DRAFT)
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([studentId])
+  @@index([classId])
+  @@index([teacherId])
+  @@index([academicYearId])
+}
+
+enum MarkStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PUBLISHED
+}
+
+// Attendance
+model Attendance {
+  id             String         @id @default(uuid())
+  studentId      String
+  student        Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId        String
+  class          Class          @relation(fields: [classId], references: [id])
+  teacherId      String
+  teacher        Teacher        @relation(fields: [teacherId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
+  date           DateTime       @default(now())
+  status         AttendanceStatus
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([studentId, classId, date])
+  @@index([studentId])
+  @@index([classId])
+  @@index([date])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+// System Settings
+model Settings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   // JSON string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Notifications
+model Notification {
+  id          String           @id @default(uuid())
+  title       String
+  message     String
+  type        NotificationType
+  recipientRole Role?          // null = all users
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([recipientRole])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
+// Fees Management
+model Fee {
+  id             String       @id @default(uuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  feeType        FeeType
+  amount         Float
+  dueDate        DateTime
+  status         FeeStatus    @default(PENDING)
+  paymentDate    DateTime?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([studentId])
+  @@index([academicYearId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+enum FeeType {
+  TUITION
+  EXAM
+  LIBRARY
+  TRANSPORT
+  HOSTEL
+  UNIFORM
+  BOOKS
+  OTHER
+}
+
+enum FeeStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
