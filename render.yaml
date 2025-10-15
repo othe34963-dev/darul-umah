@@ -41,3 +41,4 @@ services:
   - type: pserv
     name: darul-umah-db
     plan: free
+    runtime: postgresql
