@@ -40,5 +40,4 @@ services:
   # Database
   - type: pserv
     name: darul-umah-db
-    env: postgresql
     plan: free
