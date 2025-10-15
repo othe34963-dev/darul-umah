@@ -24,8 +24,10 @@ services:
     healthCheckPath: /api/ping
 
   # Frontend Static Site
-  - type: static
+  - type: web
     name: darul-umah-frontend
+    env: static
+    plan: free
     buildCommand: |
       npm install -g pnpm
       pnpm install
