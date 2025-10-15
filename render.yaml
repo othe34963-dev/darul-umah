@@ -2,7 +2,7 @@ services:
   # Backend API Service
   - type: web
     name: darul-umah-backend
-    env: node
+    runtime: node
     plan: free
     buildCommand: |
       npm install -g pnpm
@@ -26,7 +26,7 @@ services:
   # Frontend Static Site
   - type: web
     name: darul-umah-frontend
-    env: static
+    runtime: static
     plan: free
     buildCommand: |
       npm install -g pnpm
@@ -37,8 +37,7 @@ services:
       - key: VITE_API_URL
         value: https://darul-umah-backend.onrender.com
 
+databases:
   # Database
-  - type: pserv
-    name: darul-umah-db
+  - name: darul-umah-db
     plan: free
-    runtime: postgresql
