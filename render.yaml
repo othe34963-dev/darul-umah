@@ -3,7 +3,6 @@ services:
   - type: web
     name: darul-umah-backend
     runtime: node
-    plan: free
     buildCommand: |
       npm install -g pnpm
       pnpm install
@@ -27,7 +26,6 @@ services:
   - type: web
     name: darul-umah-frontend
     runtime: static
-    plan: free
     buildCommand: |
       npm install -g pnpm
       pnpm install
