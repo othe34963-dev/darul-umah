@@ -7,7 +7,8 @@ import { dirname, join } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const app = express();
+// Create the main server with all routes
+const app = createServer();
 
 // CORS configuration for production
 app.use(cors({
@@ -15,18 +16,17 @@ app.use(cors({
   credentials: true,
 }));
 
-// Create the main server
-const server = createServer();
-
 // Serve static files from the built frontend
 const staticPath = join(__dirname, "../dist/spa");
 app.use(express.static(staticPath));
 
-// Mount the API routes
-app.use("/api", server);
-
 // Serve the React app for all non-API routes
 app.get("*", (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ error: "API endpoint not found" });
+  }
+  
   res.sendFile(join(staticPath, "index.html"));
 });
 
