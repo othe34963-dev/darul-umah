@@ -1214,6 +1214,143 @@ const bulkGenerateFees = async (req, res) => {
     res.status(500).json({ error: "Failed to bulk generate fees" });
   }
 };
+const handleGetAcademicYears = async (req, res) => {
+  try {
+    const academicYears = await prisma$1.academicYear.findMany({
+      orderBy: { name: "desc" },
+      include: {
+        _count: {
+          select: {
+            students: true,
+            classes: true,
+            marks: true,
+            attendances: true,
+            fees: true
+          }
+        }
+      }
+    });
+    res.json(academicYears);
+  } catch (error) {
+    console.error("Error fetching academic years:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+const handleCreateAcademicYear = async (req, res) => {
+  try {
+    const { name, startDate, endDate } = req.body;
+    if (!name || !startDate || !endDate) {
+      return res.status(400).json({ error: "Name, start date, and end date are required" });
+    }
+    const existingYear = await prisma$1.academicYear.findUnique({
+      where: { name }
+    });
+    if (existingYear) {
+      return res.status(400).json({ error: "Academic year already exists" });
+    }
+    const academicYear = await prisma$1.academicYear.create({
+      data: {
+        name,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        isCurrent: false,
+        isActive: true
+      }
+    });
+    res.status(201).json(academicYear);
+  } catch (error) {
+    console.error("Error creating academic year:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+const handleUpdateAcademicYear = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, startDate, endDate, isCurrent, isActive } = req.body;
+    if (isCurrent) {
+      await prisma$1.academicYear.updateMany({
+        where: { isCurrent: true },
+        data: { isCurrent: false }
+      });
+    }
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (startDate) updateData.startDate = new Date(startDate);
+    if (endDate) updateData.endDate = new Date(endDate);
+    if (typeof isCurrent === "boolean") updateData.isCurrent = isCurrent;
+    if (typeof isActive === "boolean") updateData.isActive = isActive;
+    const academicYear = await prisma$1.academicYear.update({
+      where: { id },
+      data: updateData,
+      include: {
+        _count: {
+          select: {
+            students: true,
+            classes: true,
+            marks: true,
+            attendances: true,
+            fees: true
+          }
+        }
+      }
+    });
+    res.json(academicYear);
+  } catch (error) {
+    console.error("Error updating academic year:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+const handleDeleteAcademicYear = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentCount = await prisma$1.student.count({
+      where: { academicYearId: id }
+    });
+    if (studentCount > 0) {
+      return res.status(400).json({
+        error: "Cannot delete academic year with students. Please archive it instead."
+      });
+    }
+    await prisma$1.academicYear.delete({
+      where: { id }
+    });
+    res.json({ message: "Academic year deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting academic year:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+const handleSetCurrentAcademicYear = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma$1.academicYear.updateMany({
+      where: { isCurrent: true },
+      data: { isCurrent: false }
+    });
+    const academicYear = await prisma$1.academicYear.update({
+      where: { id },
+      data: { isCurrent: true }
+    });
+    res.json(academicYear);
+  } catch (error) {
+    console.error("Error setting current academic year:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+const handleGetCurrentAcademicYear = async (req, res) => {
+  try {
+    const currentYear = await prisma$1.academicYear.findFirst({
+      where: { isCurrent: true }
+    });
+    if (!currentYear) {
+      return res.status(404).json({ error: "No current academic year found" });
+    }
+    res.json(currentYear);
+  } catch (error) {
+    console.error("Error fetching current academic year:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 function createServer() {
   const app2 = express__default();
   app2.use(cors());
@@ -1280,6 +1417,12 @@ function createServer() {
   app2.get("/api/fees/classes", authMiddleware, adminOnly, getClasses);
   app2.post("/api/fees/bulk-generate", authMiddleware, adminOnly, bulkGenerateFees);
   app2.get("/api/fees/receipt/:id", authMiddleware, adminOnly, getReceiptData);
+  app2.get("/api/academic-years", authMiddleware, adminOnly, handleGetAcademicYears);
+  app2.post("/api/academic-years", authMiddleware, adminOnly, handleCreateAcademicYear);
+  app2.put("/api/academic-years/:id", authMiddleware, adminOnly, handleUpdateAcademicYear);
+  app2.delete("/api/academic-years/:id", authMiddleware, adminOnly, handleDeleteAcademicYear);
+  app2.patch("/api/academic-years/:id/set-current", authMiddleware, adminOnly, handleSetCurrentAcademicYear);
+  app2.get("/api/academic-years/current", handleGetCurrentAcademicYear);
   return app2;
 }
 const app = createServer();
@@ -1287,7 +1430,7 @@ const port = process.env.PORT || 3e3;
 const __dirname = import.meta.dirname;
 const distPath = path.join(__dirname, "../spa");
 app.use(express.static(distPath));
-app.get("*", (req, res) => {
+app.get("/*", (req, res) => {
   if (req.path.startsWith("/api/") || req.path.startsWith("/health")) {
     return res.status(404).json({ error: "API endpoint not found" });
   }
