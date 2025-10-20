@@ -21,7 +21,8 @@ const staticPath = join(__dirname, "../dist/spa");
 app.use(express.static(staticPath));
 
 // Serve the React app for all non-API routes
-app.get("*", (req, res) => {
+// Use a more specific pattern to avoid path-to-regexp issues
+app.get("/*", (req, res) => {
   // Don't serve index.html for API routes
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ error: "API endpoint not found" });
